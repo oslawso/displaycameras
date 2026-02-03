@@ -1,0 +1,3 @@
+# Cron job to repair failed camera feeds
+# Runs every minute to check and restart any failed feeds
+* * * * * root /usr/bin/displaycameras-NEW repair >/dev/null 2>&1

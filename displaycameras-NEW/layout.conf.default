@@ -1,0 +1,94 @@
+# displaycameras-NEW Default Layout Configuration
+# Version: 1.0.0
+#
+# This file defines the camera layout for your display.
+# The format is 100% compatible with the original displaycameras layout files.
+#
+# IMPORTANT: Edit this file to match your camera setup!
+
+#---------------------------------------------------------------------------
+# Window Definitions
+#---------------------------------------------------------------------------
+# Window names are used internally to manage the display grid.
+# The number of windows determines your grid layout.
+#
+# Example for a 2x2 grid (4 windows):
+windows=(upper_left upper_right lower_left lower_right)
+
+#---------------------------------------------------------------------------
+# Window Positions
+#---------------------------------------------------------------------------
+# Position format: "x1 y1 x2 y2"
+#   x1, y1 = upper-left corner coordinates
+#   x2, y2 = lower-right corner coordinates
+#
+# NOTE: Do NOT use negative coordinates!
+#
+# Example for 2x2 grid on 1920x1080 display (each window is 960x540):
+window_positions=(
+"0 0 959 539" \
+"960 0 1919 539" \
+"0 540 959 1079" \
+"960 540 1919 1079" \
+)
+
+#---------------------------------------------------------------------------
+# Camera Names
+#---------------------------------------------------------------------------
+# Names for each camera. These are used as identifiers and must be:
+#   - UTF-8 characters and ASCII [A-Za-z0-9_]
+#   - Must NOT start with a digit or period
+#   - Each name must be unique
+#
+# Example:
+camera_names=(NE SE SW West)
+
+#---------------------------------------------------------------------------
+# Camera Feeds
+#---------------------------------------------------------------------------
+# RTSP URLs for each camera feed.
+# Common Ubiquiti camera URL formats:
+#   rtsp://ip:7447/camera_name_1  (mid-resolution)
+#   rtsp://ip:7447/camera_name_2  (low-resolution)
+#
+# IMPORTANT: Replace these URLs with your actual camera feeds!
+camera_feeds=(
+"rtsp://192.168.1.100:7447/stream1" \
+"rtsp://192.168.1.101:7447/stream1" \
+"rtsp://192.168.1.102:7447/stream1" \
+"rtsp://192.168.1.103:7447/stream1" \
+)
+
+#---------------------------------------------------------------------------
+# Feed Rotation (Optional)
+#---------------------------------------------------------------------------
+# Enable rotation to display more cameras than visible windows.
+# Feeds will cycle through the window grid at the specified interval.
+
+# Enable feed rotation (overrides global setting)
+#rotate=true
+
+# Seconds to display each feed before rotating
+#rotatedelay=8
+
+# Number of windows to advance per rotation step
+# Set to the total on-screen window count for "screen flop" effect
+#seq_step=1
+
+#---------------------------------------------------------------------------
+# Off-Screen Windows (for rotation)
+#---------------------------------------------------------------------------
+# If you have more cameras than on-screen windows, add off-screen windows
+# to hold the extra feeds. Off-screen positions should be placed just
+# outside the visible display area.
+#
+# Example: Additional off-screen windows for 6 cameras on a 4-window grid
+# windows=(upper_left upper_right lower_left lower_right offscreen1 offscreen2)
+# window_positions=(
+# "0 0 959 539" \
+# "960 0 1919 539" \
+# "0 540 959 1079" \
+# "960 540 1919 1079" \
+# "1920 0 2879 539" \
+# "1920 540 2879 1079" \
+# )

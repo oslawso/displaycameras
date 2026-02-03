@@ -1,0 +1,18 @@
+[Unit]
+Description=Display RTSP camera feeds using mpv
+Documentation=https://github.com/youruser/displaycameras-NEW
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutSec=5min
+KillMode=control-group
+GuessMainPID=no
+ExecStart=/usr/bin/displaycameras-NEW start
+ExecStop=/usr/bin/displaycameras-NEW stop
+ExecReload=/usr/bin/displaycameras-NEW restart
+
+[Install]
+WantedBy=graphical.target
