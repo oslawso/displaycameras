@@ -1,0 +1,190 @@
+#!/bin/bash
+
+# mpv_control - Control interface for mpv instances
+# Replacement for omxplayer_dbuscontrol using mpv's JSON IPC
+# Version: 1.0.0
+
+# Exit if not root
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root"
+   exit 1
+fi
+
+# Check if socat is available
+if [ ! "$(which socat)" ]; then
+    echo "socat is required but not installed. Install with: apt-get install socat"
+    exit 1
+fi
+
+CAMERA_NAME="$1"
+COMMAND="$2"
+SOCKET_PATH="/tmp/mpv-ipc-${CAMERA_NAME}.sock"
+
+# Check if socket exists
+if [ ! -S "$SOCKET_PATH" ] && [ "$COMMAND" != "help" ]; then
+    echo "Socket not found for $CAMERA_NAME"
+    exit 1
+fi
+
+# Send a command to mpv via IPC socket
+send_command() {
+    local json="$1"
+    timeout 1 sh -c "echo '$json' | socat - '$SOCKET_PATH' 2>/dev/null"
+}
+
+# Parse JSON response to extract data value
+parse_json_data() {
+    local response="$1"
+    # Extract the data value from {"data":VALUE,"error":"success"}
+    echo "$response" | sed -n 's/.*"data":\([^,}]*\).*/\1/p' | tr -d '"'
+}
+
+case "$COMMAND" in
+getplaystatus)
+    # Get pause state (false = playing, true = paused)
+    result=$(send_command '{"command": ["get_property", "pause"]}')
+    if [ -z "$result" ]; then
+        echo "Unknown"
+        exit 1
+    fi
+    data=$(parse_json_data "$result")
+    if [ "$data" = "false" ]; then
+        echo "Playing"
+    elif [ "$data" = "true" ]; then
+        echo "Paused"
+    else
+        echo "Unknown"
+    fi
+    ;;
+
+getposition)
+    # Get playback position in seconds
+    result=$(send_command '{"command": ["get_property", "playback-time"]}')
+    if [ -z "$result" ]; then
+        echo "0s"
+        exit 1
+    fi
+    data=$(parse_json_data "$result")
+    # Handle null or empty response
+    if [ -z "$data" ] || [ "$data" = "null" ]; then
+        echo "0s"
+    else
+        # Extract integer part
+        time=$(echo "$data" | cut -d. -f1)
+        echo "${time:-0}s"
+    fi
+    ;;
+
+getduration)
+    # Get total duration in seconds
+    result=$(send_command '{"command": ["get_property", "duration"]}')
+    if [ -z "$result" ]; then
+        echo "0 sec"
+        exit 1
+    fi
+    data=$(parse_json_data "$result")
+    if [ -z "$data" ] || [ "$data" = "null" ]; then
+        echo "0 sec"
+    else
+        time=$(echo "$data" | cut -d. -f1)
+        echo "${time:-0} sec"
+    fi
+    ;;
+
+setvideopos)
+    # Convert "x1 y1 x2 y2" format to mpv geometry "WxH+X+Y"
+    pos="$3"
+    if [ -z "$pos" ]; then
+        echo "Usage: $0 camera_name setvideopos \"x1 y1 x2 y2\""
+        exit 1
+    fi
+    x1=$(echo "$pos" | awk '{print $1}')
+    y1=$(echo "$pos" | awk '{print $2}')
+    x2=$(echo "$pos" | awk '{print $3}')
+    y2=$(echo "$pos" | awk '{print $4}')
+    w=$((x2 - x1 + 1))
+    h=$((y2 - y1 + 1))
+    geometry="${w}x${h}+${x1}+${y1}"
+    send_command "{\"command\": [\"set_property\", \"geometry\", \"$geometry\"]}" >/dev/null
+    ;;
+
+setgeometry)
+    # Set geometry directly in WxH+X+Y format
+    geometry="$3"
+    if [ -z "$geometry" ]; then
+        echo "Usage: $0 camera_name setgeometry WxH+X+Y"
+        exit 1
+    fi
+    send_command "{\"command\": [\"set_property\", \"geometry\", \"$geometry\"]}" >/dev/null
+    ;;
+
+getsource)
+    # Get the current stream URL/path
+    result=$(send_command '{"command": ["get_property", "path"]}')
+    if [ -z "$result" ]; then
+        echo ""
+        exit 1
+    fi
+    data=$(parse_json_data "$result")
+    echo "$data"
+    ;;
+
+status)
+    # Get comprehensive status
+    playstatus=$($0 "$CAMERA_NAME" getplaystatus)
+    position=$($0 "$CAMERA_NAME" getposition)
+    source=$($0 "$CAMERA_NAME" getsource)
+    echo "$playstatus $source"
+    echo "at $position"
+    ;;
+
+stop)
+    # Stop playback (pause at beginning)
+    send_command '{"command": ["stop"]}' >/dev/null
+    ;;
+
+pause)
+    # Toggle pause state
+    send_command '{"command": ["cycle", "pause"]}' >/dev/null
+    ;;
+
+quit)
+    # Terminate mpv instance
+    send_command '{"command": ["quit"]}' >/dev/null 2>&1
+    ;;
+
+ping)
+    # Quick health check
+    result=$(send_command '{"command": ["get_property", "pause"]}' 2>/dev/null)
+    if [ -n "$result" ] && echo "$result" | grep -q '"error":"success"'; then
+        echo "alive"
+        exit 0
+    else
+        echo "dead"
+        exit 1
+    fi
+    ;;
+
+help|*)
+    echo "mpv_control - Control mpv instances via IPC"
+    echo ""
+    echo "Usage: $0 camera_name command [args...]"
+    echo ""
+    echo "Commands:"
+    echo "  getplaystatus       Get playback status (Playing/Paused/Unknown)"
+    echo "  getposition         Get playback position (Xs format)"
+    echo "  getduration         Get total duration"
+    echo "  getsource           Get current stream URL"
+    echo "  setvideopos \"x1 y1 x2 y2\"  Set window position (converts to geometry)"
+    echo "  setgeometry WxH+X+Y Set window geometry directly"
+    echo "  status              Get full status (playstatus + source + position)"
+    echo "  stop                Stop playback"
+    echo "  pause               Toggle pause"
+    echo "  quit                Terminate mpv instance"
+    echo "  ping                Health check (returns alive/dead)"
+    echo ""
+    if [ "$COMMAND" != "help" ]; then
+        exit 1
+    fi
+    ;;
+esac

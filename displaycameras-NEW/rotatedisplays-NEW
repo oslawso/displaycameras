@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# rotatedisplays-NEW - Rotation daemon for displaycameras-NEW
+# Version: 1.0.0
+#
+# Usage: rotatedisplays-NEW delay seq_step
+#   delay     - seconds between rotations
+#   seq_step  - number of windows to advance per rotation
+
+delay="${1:-5}"
+seq_step="${2:-1}"
+
+# Determine rotation direction based on seq_step
+if [ "$seq_step" -gt "1" ]; then
+    rotate_cmd="rotaterev"
+else
+    rotate_cmd="rotate"
+fi
+
+# Run 11 rotation cycles then restart self
+# This prevents memory buildup in long-running bash processes
+for _ in $(seq 1 11); do
+    sleep "$delay"
+    /usr/bin/displaycameras-NEW "$rotate_cmd"
+done
+
+# Restart self in background and exit
+"$0" "$delay" "$seq_step" &
